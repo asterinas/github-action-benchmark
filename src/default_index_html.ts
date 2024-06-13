@@ -109,23 +109,7 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
     <script id="main-script">
       'use strict';
       (function() {
-        // Colors from https://github.com/github/linguist/blob/master/lib/linguist/languages.yml
-        const toolColors = {
-          cargo: '#dea584',
-          go: '#00add8',
-          benchmarkjs: '#f1e05a',
-          benchmarkluau: '#000080',
-          pytest: '#3572a5',
-          googlecpp: '#f34b7d',
-          catch2: '#f34b7d',
-          julia: '#a270ba',
-          jmh: '#b07219',
-          benchmarkdotnet: '#178600',
-          customBiggerIsBetter: '#38ff38',
-          customSmallerIsBetter: '#ff3838',
-          _: '#333333'
-        };
-
+        
         function init() {
           function collectBenchesPerTestCase(entries) {
             const map = new Map();
@@ -170,23 +154,36 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
 
         function renderAllChars(dataSets) {
 
-          function renderGraph(parent, name, dataset) {
+          function generateRandomColor() {
+            const red = Math.floor(Math.random() * 255);
+            const green = Math.floor(Math.random() * 255);
+            const blue = Math.floor(Math.random() * 255);
+            return 'rgb(' + red + ', ' + green + ', ' + blue + ')';
+          }
+
+          function renderGraph(parent, benchSets) {
             const canvas = document.createElement('canvas');
             canvas.className = 'benchmark-chart';
             parent.appendChild(canvas);
-
-            const color = toolColors[dataset.length > 0 ? dataset[0].tool : '_'];
+          
+            const datasets = [];
+            for (const [benchName, benches] of benchSets.entries()) {
+              const color = generateRandomColor();
+              datasets.push({
+                label: benchName,
+                data: benches.map(d => d.bench.value),
+                fill: false,
+                borderColor: color,
+                backgroundColor: color + '60', // Add alpha for #rrggbbaa
+              });
+            }
+          
             const data = {
-              labels: dataset.map(d => d.commit.id.slice(0, 7)),
-              datasets: [
-                {
-                  label: name,
-                  data: dataset.map(d => d.bench.value),
-                  borderColor: color,
-                  backgroundColor: color + '60', // Add alpha for #rrggbbaa
-                }
-              ],
+              // Assuming all datasets has the same commit sequence
+              labels: benchSets.values().next().value.map(d => d.commit.id.slice(0, 7)),
+              datasets: datasets,
             };
+          
             const options = {
               scales: {
                 xAxes: [
@@ -201,7 +198,8 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
                   {
                     scaleLabel: {
                       display: true,
-                      labelString: dataset.length > 0 ? dataset[0].bench.unit : '',
+                      // Assuming all datasets has the same unit, take the first one
+                      labelString: benchSets.values().next().value.length > 0 ? benchSets.values().next().value[0].bench.unit : '',
                     },
                     ticks: {
                       beginAtZero: true,
@@ -235,7 +233,6 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
                 if (activeElems.length === 0) {
                   return;
                 }
-                // XXX: Undocumented. How can we know the index?
                 const index = activeElems[0]._index;
                 const url = dataset[index].commit.url;
                 window.open(url, '_blank');
@@ -249,7 +246,12 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             });
           }
 
-          function renderBenchSet(name, benchSet, main) {
+          const main = document.getElementById('main');
+          const graphsElem = document.createElement('div');
+          graphsElem.className = 'benchmark-graphs';
+          main.appendChild(graphsElem);
+        
+          for (const {name, dataSet} of dataSets) {
             const setElem = document.createElement('div');
             setElem.className = 'benchmark-set';
             main.appendChild(setElem);
@@ -262,18 +264,10 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             const graphsElem = document.createElement('div');
             graphsElem.className = 'benchmark-graphs';
             setElem.appendChild(graphsElem);
-
-            for (const [benchName, benches] of benchSet.entries()) {
-              renderGraph(graphsElem, benchName, benches)
-            }
-          }
-
-          const main = document.getElementById('main');
-          for (const {name, dataSet} of dataSets) {
-            renderBenchSet(name, dataSet, main);
+            renderGraph(graphsElem, dataSet);
           }
         }
-
+        
         renderAllChars(init()); // Start
       })();
     </script>
