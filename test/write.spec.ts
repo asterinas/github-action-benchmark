@@ -186,6 +186,7 @@ describe.each(['https://github.com', 'https://github.enterprise.corp'])('writeBe
             alertCommentCcUsers: ['@user'],
             externalDataJsonPath: dataJson,
             maxItemsInChart: null,
+            chartDescription: 'dummy',
             failThreshold: 2.0,
             ref: undefined,
         };
@@ -884,6 +885,7 @@ describe.each(['https://github.com', 'https://github.enterprise.corp'])('writeBe
             alertCommentCcUsers: [],
             externalDataJsonPath: undefined,
             maxItemsInChart: null,
+            chartDescription: 'dummy',
             failThreshold: 2.0,
             ref: undefined,
         };

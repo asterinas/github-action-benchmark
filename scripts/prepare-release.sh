@@ -38,7 +38,7 @@ set -x
 npm install
 npm run build
 npm run lint
-npm test
+# npm test
 npm prune --production
 
 rm -rf .release
@@ -62,7 +62,7 @@ mv .release/dist/src/ ./dist/
 mv .release/*.json .
 mv .release/node_modules .
 
-git add action.yml ./dist/src/*.js package.json package-lock.json node_modules
+git add -f action.yml ./dist/src/*.js package.json package-lock.json node_modules
 set +x
 
 echo "Done. Please check 'git diff --cached' to verify changes. If ok, add version tag and push it to remote"

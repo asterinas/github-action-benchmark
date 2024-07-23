@@ -82,6 +82,15 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
       .benchmark-chart {
         max-width: 1000px;
       }
+      .chart-description {
+        font-family: 'Courier New', Courier, monospace;
+        color: #999; 
+        font-style: italic; 
+        font-size: 0.8rem;
+        font-weight: 200;
+        word-break: break-word;
+        text-align: center;
+      }
     </style>
     <title>Benchmarks</title>
   </head>
@@ -149,16 +158,26 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
           return Object.keys(data.entries).map(name => ({
             name,
             dataSet: collectBenchesPerTestCase(data.entries[name]),
+            description: data.entries[name][data.entries[name].length - 1].description // Assuming description is the same for all entries of the same name
           }));
         }
 
         function renderAllChars(dataSets) {
 
-          function generateRandomColor() {
-            const red = Math.floor(Math.random() * 255);
-            const green = Math.floor(Math.random() * 255);
-            const blue = Math.floor(Math.random() * 255);
-            return 'rgb(' + red + ', ' + green + ', ' + blue + ')';
+          function generateColor(index) {
+            const colors = [
+              'rgb(255, 99, 132)',  // Red
+              'rgb(54, 162, 235)',   // Blue
+              'rgb(255, 206, 86)',   // Yellow
+              'rgb(75, 192, 192)',   // Teal
+              'rgb(153, 102, 255)',  // Purple
+              'rgb(255, 159, 64)',   // Orange
+              'rgb(199, 199, 199)',  // Gray
+              'rgb(144, 238, 144)',  // Light Green
+              'rgb(238, 130, 238)',  // Lavender
+              'rgb(255, 105, 180)'   // Pink
+            ];
+            return colors[index % colors.length];
           }
 
           function renderGraph(parent, benchSets) {
@@ -167,8 +186,9 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             parent.appendChild(canvas);
           
             const datasets = [];
+            let index = 0;
             for (const [benchName, benches] of benchSets.entries()) {
-              const color = generateRandomColor();
+              const color = generateColor(index);
               datasets.push({
                 label: benchName,
                 data: benches.map(d => d.bench.value),
@@ -176,6 +196,7 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
                 borderColor: color,
                 backgroundColor: color + '60', // Add alpha for #rrggbbaa
               });
+              index++;
             }
           
             const data = {
@@ -244,6 +265,7 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
               data,
               options,
             });
+
           }
 
           const main = document.getElementById('main');
@@ -251,7 +273,7 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
           graphsElem.className = 'benchmark-graphs';
           main.appendChild(graphsElem);
         
-          for (const {name, dataSet} of dataSets) {
+          for (const {name, dataSet, description} of dataSets) {
             const setElem = document.createElement('div');
             setElem.className = 'benchmark-set';
             main.appendChild(setElem);
@@ -260,6 +282,11 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             nameElem.className = 'benchmark-title';
             nameElem.textContent = name;
             setElem.appendChild(nameElem);
+
+            const descriptionElem = document.createElement('div');
+            descriptionElem.className = 'chart-description';
+            descriptionElem.textContent = description;
+            setElem.appendChild(descriptionElem);
 
             const graphsElem = document.createElement('div');
             graphsElem.className = 'benchmark-graphs';
