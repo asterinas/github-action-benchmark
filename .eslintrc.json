@@ -1,6 +1,11 @@
 {
   "root": true,
-  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier", "plugin:prettier/recommended"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "prettier",
+    "plugin:prettier/recommended"
+  ],
   "env": {
     "es6": true,
     "node": true
@@ -44,7 +49,7 @@
       "files": ["test/*.ts"],
       "plugins": ["jest"],
       "env": {
-        "jest/globals": true
+        "jest": true
       },
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",
