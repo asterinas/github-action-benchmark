@@ -73,6 +73,7 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
         font-weight: 600;
         word-break: break-word;
         text-align: center;
+        margin-bottom: 5px;
       }
       .benchmark-graphs {
         display: flex;
@@ -86,13 +87,15 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
         max-width: 1000px;
       }
       .chart-description {
-        font-family: 'Courier New', Courier, monospace;
-        color: #999; 
-        font-style: italic; 
-        font-size: 0.8rem;
-        font-weight: 200;
-        word-break: break-word;
-        text-align: center;
+          font-family: 'Courier New', Courier, monospace;
+          color: #333; /* Changed to a darker color for better readability */
+          font-style: italic;
+          font-size: 0.9rem;
+          font-weight: 200;
+          word-break: break-word;
+          text-align: center;
+          margin-top: 0px; /* Added margin to create space between the title and the description */
+          margin-bottom: 20px; /* Added margin to create space between the description and the figure below it */
       }
     </style>
     <title>Benchmarks</title>
@@ -222,8 +225,8 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
                   {
                     scaleLabel: {
                       display: true,
-                      // Assuming all datasets has the same unit, take the first one
-                      labelString: benchSets.values().next().value.length > 0 ? benchSets.values().next().value[0].bench.unit : '',
+                      // Assuming all datasets has the same unit, take the last one
+                      labelString: benchSets.values().next().value.length > 0 ? benchSets.values().next().value[benchSets.values().next().value.length - 1].bench.unit : '',
                     },
                     ticks: {
                       beginAtZero: true,
