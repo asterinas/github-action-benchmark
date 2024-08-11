@@ -279,6 +279,7 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
           graphsElem.className = 'benchmark-graphs';
           main.appendChild(graphsElem);
         
+          dataSets.sort((a, b) => a.name.localeCompare(b.name));
           for (const {name, dataSet, description} of dataSets) {
             const setElem = document.createElement('div');
             setElem.className = 'benchmark-set';
