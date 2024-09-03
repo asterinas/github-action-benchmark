@@ -186,9 +186,11 @@ describe.each(['https://github.com', 'https://github.enterprise.corp'])('writeBe
             alertCommentCcUsers: ['@user'],
             externalDataJsonPath: dataJson,
             maxItemsInChart: null,
+            chartTitle: 'Test benchmark Alert',
             chartDescription: 'dummy',
             failThreshold: 2.0,
             ref: undefined,
+            display: true,
         };
 
         const savedRepository = {
@@ -885,9 +887,11 @@ describe.each(['https://github.com', 'https://github.enterprise.corp'])('writeBe
             alertCommentCcUsers: [],
             externalDataJsonPath: undefined,
             maxItemsInChart: null,
+            chartTitle: 'Test benchmark Alert',
             chartDescription: 'dummy',
             failThreshold: 2.0,
             ref: undefined,
+            display: true,
         };
 
         function gitHistory(

@@ -51,7 +51,6 @@ cp -R node_modules .release/node_modules
 
 git checkout "$version"
 git pull
-git rm -rf node_modules
 rm -rf node_modules  # remove node_modules/.cache
 
 rm -rf dist

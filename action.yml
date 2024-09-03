@@ -79,9 +79,16 @@ inputs:
   max-items-in-chart:
     description: 'Max data points in a benchmark chart to avoid making the chart too busy. Value must be unsigned integer. No limit by default'
     required: false
+  chart-title:
+    description: 'Title for the chart'
+    required: false
   chart-description:
     description: 'Description for the chart'
     required: false
+  display:
+    description: 'Display the benchmark result in the overview chart'
+    required: false
+    default: 'true'
 
 runs:
   using: 'node20'

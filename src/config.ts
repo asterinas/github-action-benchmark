@@ -24,8 +24,10 @@ export interface Config {
     alertCommentCcUsers: string[];
     externalDataJsonPath: string | undefined;
     maxItemsInChart: number | null;
+    chartTitle: string | undefined;
     chartDescription: string | undefined;
     ref: string | undefined;
+    display: boolean;
 }
 
 export const VALID_TOOLS = [
@@ -240,6 +242,8 @@ export async function configFromJobInput(): Promise<Config> {
     const alertCommentCcUsers = getCommaSeparatedInput('alert-comment-cc-users');
     let externalDataJsonPath: undefined | string = core.getInput('external-data-json-path');
     const maxItemsInChart = getUintInput('max-items-in-chart');
+    const display = core.getInput('display') === 'true';
+    const chartTitle = core.getInput('chart-title');
     const chartDescription = core.getInput('chart-description');
     let failThreshold = getPercentageInput('fail-threshold');
 
@@ -287,8 +291,10 @@ export async function configFromJobInput(): Promise<Config> {
         alertCommentCcUsers,
         externalDataJsonPath,
         maxItemsInChart,
+        chartTitle,
         chartDescription,
         failThreshold,
         ref,
+        display,
     };
 }

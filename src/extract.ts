@@ -39,7 +39,9 @@ export interface Benchmark {
     commit: Commit;
     date: number;
     tool: ToolType;
+    title?: string;
     description?: string;
+    display?: boolean;
     benches: BenchmarkResult[];
 }
 
@@ -744,14 +746,17 @@ export async function extractResult(config: Config): Promise<Benchmark> {
 
     const commit = await getCommit(githubToken, ref);
 
-    // let description = config.chartDescription if it is defined
+    const title = config.chartTitle ? config.chartTitle : '';
     const description = config.chartDescription ? config.chartDescription : '';
+    const display = config.display ? config.display : true;
 
     return {
         commit,
         date: Date.now(),
         tool,
+        title: title,
         description: description,
+        display: display,
         benches,
     };
 }
