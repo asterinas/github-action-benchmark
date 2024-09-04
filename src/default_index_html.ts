@@ -17,9 +17,9 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
           font-weight: 400;
       }
       header {
-          margin-bottom: 8px;
-          display: flex;
-          flex-direction: column;
+            margin-bottom: 8px;
+            display: flex;
+            flex-direction: column;
       }
       main {
           width: 100%;
@@ -199,7 +199,6 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
               }));
           }
           
-          console.log(dataSets);
           dataSets.sort((a, b) => {
             const titleA = a.dataSet.values().next().value[a.dataSet.values().next().value.length - 1].title || a.name;
             const titleB = b.dataSet.values().next().value[b.dataSet.values().next().value.length - 1].title || b.name;
