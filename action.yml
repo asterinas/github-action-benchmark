@@ -85,7 +85,7 @@ inputs:
   chart-description:
     description: 'Description for the chart'
     required: false
-  display:
+  show-in-overview:
     description: 'Display the benchmark result in the overview chart'
     required: false
     default: 'true'

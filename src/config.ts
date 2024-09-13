@@ -242,7 +242,7 @@ export async function configFromJobInput(): Promise<Config> {
     const alertCommentCcUsers = getCommaSeparatedInput('alert-comment-cc-users');
     let externalDataJsonPath: undefined | string = core.getInput('external-data-json-path');
     const maxItemsInChart = getUintInput('max-items-in-chart');
-    const display = core.getInput('display') === 'true';
+    const display = core.getInput('show-in-overview') === 'true';
     const chartTitle = core.getInput('chart-title');
     const chartDescription = core.getInput('chart-description');
     let failThreshold = getPercentageInput('fail-threshold');
