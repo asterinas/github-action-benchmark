@@ -91,11 +91,13 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Slight shadow */
       }
       .benchmark-chart-overview {
+          display: flex;
+          flex-direction: column;
           max-width: 90%;
           width: auto; /* Make width adaptive */
           min-width: 1000px; /* Set minimum width to 1000px */
-          height: auto; /* Make height adaptive */
-          min-height: 600px;
+          height: 80vh; /* Make height adaptive */
+          min-height: 1000px;
           max-height: 1500px; /* Make height adaptive */
           background-color: #ffffff; /* White background for better chart display */
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Slight shadow */
@@ -213,8 +215,8 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
         // Get normalized data with display flag
         function getNormalizedData(dataSets) {
           function extractValuesAndTitle(map) {
-            const linuxEntry = [...map.values()].find(entry => entry[0].bench.extra === 'linux_avg');
-            const asterinasEntry = [...map.values()].find(entry => entry[0].bench.extra === 'aster_avg');
+            const linuxEntry = [...map.values()].find(entry => entry[0].bench.extra === 'linux_result');
+            const asterinasEntry = [...map.values()].find(entry => entry[0].bench.extra === 'aster_result');
 
             if (!linuxEntry || !asterinasEntry) {
               throw new Error('Linux or Asterinas entry not found');
@@ -467,12 +469,12 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
 
             const nameElem = document.createElement('h1');
             nameElem.className = 'benchmark-title';
-            nameElem.textContent = dataSet.values().next().value.length > 0 ? dataSet.values().next().value[0].title : '';
+            nameElem.textContent = dataSet.values().next().value.length > 0 ? dataSet.values().next().value[dataSet.values().next().value.length-1].title : '';
             setElem.appendChild(nameElem);
-
+            
             const descriptionElem = document.createElement('div');
             descriptionElem.className = 'chart-description';
-            descriptionElem.textContent = dataSet.values().next().value.length > 0 ? dataSet.values().next().value[0].description : '';
+            descriptionElem.textContent = dataSet.values().next().value.length > 0 ? dataSet.values().next().value[dataSet.values().next().value.length-1].description : '';
             setElem.appendChild(descriptionElem);
 
             const graphsElem = document.createElement('div');
