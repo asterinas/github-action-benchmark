@@ -27,7 +27,7 @@ export interface Config {
     chartTitle: string | undefined;
     chartDescription: string | undefined;
     ref: string | undefined;
-    display: boolean;
+    summaryJsonPath: string | undefined;
 }
 
 export const VALID_TOOLS = [
@@ -242,7 +242,7 @@ export async function configFromJobInput(): Promise<Config> {
     const alertCommentCcUsers = getCommaSeparatedInput('alert-comment-cc-users');
     let externalDataJsonPath: undefined | string = core.getInput('external-data-json-path');
     const maxItemsInChart = getUintInput('max-items-in-chart');
-    const display = core.getInput('show-in-overview') === 'true';
+    const summaryJsonPath: string | undefined = core.getInput('summary-json-path') || undefined;
     const chartTitle = core.getInput('chart-title');
     const chartDescription = core.getInput('chart-description');
     let failThreshold = getPercentageInput('fail-threshold');
@@ -295,6 +295,6 @@ export async function configFromJobInput(): Promise<Config> {
         chartDescription,
         failThreshold,
         ref,
-        display,
+        summaryJsonPath,
     };
 }

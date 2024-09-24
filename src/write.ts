@@ -17,6 +17,10 @@ export interface DataJson {
     entries: BenchmarkSuites;
 }
 
+interface SummaryJson {
+    benchmarks: string[];
+}
+
 export const SCRIPT_PREFIX = 'window.BENCHMARK_DATA = ';
 const DEFAULT_DATA_JSON = {
     lastUpdate: 0,
@@ -34,6 +38,17 @@ async function loadDataJs(dataPath: string): Promise<DataJson> {
     } catch (err) {
         console.log(`Could not find data.js at ${dataPath}. Using empty default: ${err}`);
         return { ...DEFAULT_DATA_JSON };
+    }
+}
+
+async function loadSummaryJson(jsonPath: string): Promise<SummaryJson> {
+    try {
+        const content = await fs.readFile(jsonPath, 'utf8');
+        const json: SummaryJson = JSON.parse(content);
+        core.debug(`Loaded external JSON file at ${jsonPath}`);
+        return json;
+    } catch (err) {
+        throw new Error(`Could not find external JSON file for summary data at ${jsonPath}: ${err}`);
     }
 }
 
@@ -316,12 +331,13 @@ async function handleAlert(benchName: string, curSuite: Benchmark, prevSuite: Be
     }
 }
 
-function addBenchmarkToDataJson(
+async function addBenchmarkToDataJson(
     benchName: string,
     bench: Benchmark,
     data: DataJson,
     maxItems: number | null,
-): Benchmark | null {
+    summaryJsonPath: string | undefined,
+): Promise<Benchmark | null> {
     const repoMetadata = getCurrentRepoMetadata();
     const htmlUrl = repoMetadata.html_url ?? '';
 
@@ -353,6 +369,33 @@ function addBenchmarkToDataJson(
         }
     }
 
+    if (summaryJsonPath) {
+        try {
+            const summaryJson: SummaryJson = await loadSummaryJson(summaryJsonPath);
+            // Sort data.entries based on summary.json order
+            const sortedEntries: { [key: string]: Benchmark[] } = {};
+            summaryJson.benchmarks.forEach((name) => {
+                if (data.entries[name]) {
+                    sortedEntries[name] = data.entries[name];
+                }
+            });
+
+            // Add remaining entries at the end
+            Object.keys(data.entries).forEach((name) => {
+                if (!sortedEntries[name]) {
+                    sortedEntries[name] = data.entries[name];
+                }
+            });
+
+            data.entries = sortedEntries;
+            // Add display_on_overview field
+            const displayOnOverview = summaryJson.benchmarks.includes(benchName);
+            const lastEntry = data.entries[benchName][data.entries[benchName].length - 1];
+            lastEntry.display = displayOnOverview;
+        } catch (err) {
+            throw new Error(`Could not store benchmark data as JSON at ${summaryJsonPath}: ${err}`);
+        }
+    }
     return prevBench;
 }
 
@@ -378,6 +421,7 @@ async function writeBenchmarkToGitHubPagesWithRetry(
         autoPush,
         skipFetchGhPages,
         maxItemsInChart,
+        summaryJsonPath,
     } = config;
     const rollbackActions = new Array<() => Promise<void>>();
 
@@ -421,7 +465,7 @@ async function writeBenchmarkToGitHubPagesWithRetry(
     await io.mkdirP(benchmarkDataDirFullPath);
 
     const data = await loadDataJs(dataPath);
-    const prevBench = addBenchmarkToDataJson(name, bench, data, maxItemsInChart);
+    const prevBench = addBenchmarkToDataJson(name, bench, data, maxItemsInChart, summaryJsonPath);
 
     await storeDataJs(dataPath, data);
 
@@ -509,9 +553,9 @@ async function writeBenchmarkToExternalJson(
     jsonFilePath: string,
     config: Config,
 ): Promise<Benchmark | null> {
-    const { name, maxItemsInChart, saveDataFile } = config;
+    const { name, maxItemsInChart, saveDataFile, summaryJsonPath } = config;
     const data = await loadDataJson(jsonFilePath);
-    const prevBench = addBenchmarkToDataJson(name, bench, data, maxItemsInChart);
+    const prevBench = addBenchmarkToDataJson(name, bench, data, maxItemsInChart, summaryJsonPath);
 
     if (!saveDataFile) {
         core.debug('Skipping storing benchmarks in external data file');

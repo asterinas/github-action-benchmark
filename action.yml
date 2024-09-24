@@ -85,10 +85,9 @@ inputs:
   chart-description:
     description: 'Description for the chart'
     required: false
-  show-in-overview:
-    description: 'Display the benchmark result in the overview chart'
+  summary-json-path:
+    description: 'Path to the summary JSON file of the benchmark'
     required: false
-    default: 'true'
 
 runs:
   using: 'node20'

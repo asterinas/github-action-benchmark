@@ -748,7 +748,7 @@ export async function extractResult(config: Config): Promise<Benchmark> {
 
     const title = config.chartTitle ? config.chartTitle : '';
     const description = config.chartDescription ? config.chartDescription : '';
-    const display = config.display ? config.display : true;
+    const display = true;
 
     return {
         commit,

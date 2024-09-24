@@ -190,7 +190,7 @@ describe.each(['https://github.com', 'https://github.enterprise.corp'])('writeBe
             chartDescription: 'dummy',
             failThreshold: 2.0,
             ref: undefined,
-            display: true,
+            summaryJsonPath: 'summary.json',
         };
 
         const savedRepository = {
@@ -891,7 +891,7 @@ describe.each(['https://github.com', 'https://github.enterprise.corp'])('writeBe
             chartDescription: 'dummy',
             failThreshold: 2.0,
             ref: undefined,
-            display: true,
+            summaryJsonPath: 'summary.json',
         };
 
         function gitHistory(
