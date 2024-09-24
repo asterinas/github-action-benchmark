@@ -204,11 +204,6 @@ exports.DEFAULT_INDEX_HTML = String.raw `<!DOCTYPE html>
               }));
           }
           
-          dataSets.sort((a, b) => {
-            const titleA = a.dataSet.values().next().value[a.dataSet.values().next().value.length - 1].title || a.name;
-            const titleB = b.dataSet.values().next().value[b.dataSet.values().next().value.length - 1].title || b.name;
-            return titleA.localeCompare(titleB);
-          });
           return dataSets;
         }
 
