@@ -93,9 +93,6 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
           max-width: 90%;
           width: auto; /* Make width adaptive */
           min-width: 1000px; /* Set minimum width to 1000px */
-          height: 80vh; /* Make height adaptive */
-          min-height: 1000px;
-          max-height: 1500px; /* Make height adaptive */
           background-color: #ffffff; /* White background for better chart display */
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Slight shadow */
       }
@@ -110,7 +107,7 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
           margin-top: 0px; /* Added margin to create space between the title and the description */
           margin-bottom: 20px; /* Added margin to create space between the description and the figure below it */
       }
-  </style>
+    </style>
     <title>Benchmarks</title>
   </head>
 
@@ -135,7 +132,7 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-tick-configuration"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script> <!-- Include annotation plugin -->
-    <script src="data.js"></script>
+    <script src="./data.js"></script>
     <script id="main-script">
       'use strict';
       (function() {
@@ -183,30 +180,12 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             }
             return pathSegments[pathSegments.length - 1];
           })();
-
-          // Prepare data points for charts
-          let dataSets;
-          if (filter) {
-            dataSets = Object.keys(data.entries)
-              .filter(name => name.startsWith(filter))
+    
+          return Object.keys(data.entries)
               .map(name => ({
                 name,
                 dataSet: collectBenchesPerTestCase(data.entries[name]),
               }));
-          } else {
-            dataSets = Object.keys(data.entries)
-              .map(name => ({
-                name,
-                dataSet: collectBenchesPerTestCase(data.entries[name]),
-              }));
-          }
-          
-          dataSets.sort((a, b) => {
-            const titleA = a.dataSet.values().next().value[a.dataSet.values().next().value.length - 1].title || a.name;
-            const titleB = b.dataSet.values().next().value[b.dataSet.values().next().value.length - 1].title || b.name;
-            return titleA.localeCompare(titleB);
-          });
-          return dataSets;
         }
 
         // Get normalized data with display flag
@@ -271,6 +250,16 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             return colors[index % colors.length];
           }
 
+          function setCanvasHeight(canvas, numberOfBars) {
+              const heightPerBar = 25; // Height of each bar
+              const padding = 10; // Top and bottom padding
+
+              // Calculate total height based on the number of bars
+              const totalHeight = heightPerBar * (numberOfBars + 1) + padding * 2;
+
+              canvas.style.height = totalHeight + 'px';
+          }
+
           function renderGraph(parent, benchSets) {
             const canvas = document.createElement('canvas');
             canvas.className = 'benchmark-chart';
@@ -291,9 +280,11 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             }
           
             const data = {
-              // Assuming all datasets has the same commit sequence
-              labels: benchSets.values().next().value.map(d => d.commit.id.slice(0, 7)),
-              datasets: datasets,
+              labels: benchSets.values().next().value.map(d => d.commit.id.slice(0, 7)).slice(-60),
+              datasets: datasets.map(dataset => ({
+                ...dataset,
+                data: dataset.data.slice(-60)
+              }))
             };
           
             const options = {
@@ -357,70 +348,75 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
 
             }
 
-          function renderOverview(ctx, labels, asterinasValues) {
-                    const canvas = document.createElement('canvas');
-                    canvas.className = 'benchmark-chart-overview';
-                    ctx.appendChild(canvas);
-                    new Chart(canvas, {
-                        type: 'bar', // Use bar type
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                {
-                                    label: 'Asterinas',
-                                    data: asterinasValues,
-                                    fill: false,
-                                    backgroundColor: 'rgba(54, 162, 235, 0.2)', // Swap colors
-                                    borderColor: 'rgba(54, 162, 235, 1)', // Swap colors
-                                    borderWidth: 1,
-                                }
-                            ]
-                        },
-                        options: {
-                            indexAxis: 'y', // Set indexAxis to 'y' to create horizontal bar chart
-                            scales: {
-                                x: {
-                                    reverse: true,
-                                    ticks: {
-                                        stepSize: 0.1,
-                                        major: {
-                                            enabled: true
-                                        },
-                                    }
-                                },
-                                y: {
-                                    position: 'right',
-                                    ticks: {
-                                        autoSkip: false, // Ensure every tick is displayed
-                                        font: {
-                                            size: 14 // Set font size
-                                        },
-                                    }
-                                }
-                            },
-                            plugins: {
-                                annotation: {
-                                    annotations: [
-                                        {
-                                            type: 'line',
-                                            mode: 'horizontal',
-                                            scaleID: 'x',
-                                            value: 1,
-                                            borderColor: 'rgba(0, 0, 0, 0.5)',
-                                            borderWidth: 2,
-                                            label: {
-                                                content: 'Reference Line (x=1)',
-                                                enabled: true,
-                                                position: 'right'
-                                            }
-                                        }
-                                    ]
-                                }
-                            },
-                            responsive: true, // Make chart responsive
-                            maintainAspectRatio: false // Do not maintain original aspect ratio
-                        }
-                    });
+            function renderOverview(ctx, labels, asterinasValues) {
+              const canvas = document.createElement('canvas');
+              canvas.className = 'benchmark-chart-overview';
+              setCanvasHeight(canvas, labels.length);
+              ctx.appendChild(canvas);
+              new Chart(canvas, {
+                  type: 'bar', 
+                  data: {
+                      labels: labels,
+                      datasets: [
+                          {
+                              label: 'Asterinas',
+                              data: asterinasValues,
+                              fill: false,
+                              backgroundColor: 'rgba(54, 162, 235, 0.2)', 
+                              borderColor: 'rgba(54, 162, 235, 1)', 
+                              borderWidth: 1,
+                          }
+                      ]
+                  },
+                  options: {
+                      indexAxis: 'y', 
+                      scales: {
+                          x: {
+                              reverse: true,
+                              ticks: {
+                                  stepSize: 0.1,
+                                  major: {
+                                      enabled: true
+                                  },
+                              }
+                          },
+                          y: {
+                              position: 'right',
+                              ticks: {
+                                  autoSkip: false, 
+                                  font: (context) => ({
+                                      family: 'Consolas, monospace',
+                                      weight: context.tick.label === 'Geometric Mean' ? 'bold' : 'normal',
+                                      size: 14,
+                                  }),
+                              }
+                          }
+                      },
+                      barPercentage: 0.6, 
+                      categoryPercentage: 0.8, 
+                      plugins: {
+                          annotation: {
+                              annotations: [
+                                  {
+                                      type: 'line',
+                                      mode: 'horizontal',
+                                      scaleID: 'x',
+                                      value: 1,
+                                      borderColor: 'rgba(0, 0, 0, 0.5)',
+                                      borderWidth: 2,
+                                      label: {
+                                          content: 'Reference Line (x=1)',
+                                          enabled: true,
+                                          position: 'right'
+                                      }
+                                  }
+                              ]
+                          }
+                      },
+                      responsive: true, 
+                      maintainAspectRatio: false 
+                  }
+              });
           }
 
           const main = document.getElementById('main');
@@ -455,11 +451,6 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
           renderOverview(overviewElem, labels, asterinasValues);
         
           for (const {name, dataSet} of dataSets) {
-            // const display = dataSet.values().next().value.length > 0 ? dataSet.values().next().value[0].display : true;
-            // if (!display) {
-            //   continue;
-            // }
-
             const setElem = document.createElement('div');
             setElem.className = 'benchmark-set';
             main.appendChild(setElem);
@@ -468,7 +459,7 @@ export const DEFAULT_INDEX_HTML = String.raw`<!DOCTYPE html>
             nameElem.className = 'benchmark-title';
             nameElem.textContent = dataSet.values().next().value.length > 0 ? dataSet.values().next().value[dataSet.values().next().value.length-1].title : '';
             setElem.appendChild(nameElem);
-            console.log(dataSet);
+            
             const descriptionElem = document.createElement('div');
             descriptionElem.className = 'chart-description';
             descriptionElem.textContent = dataSet.values().next().value.length > 0 ? dataSet.values().next().value[dataSet.values().next().value.length-1].description : '';
