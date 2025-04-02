@@ -1,7 +1,8 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    "lib": ["esnext", "dom"] // Add "dom" here
   },
   "include": ["**/*.ts"],
   "exclude": ["test/**/*.ts"]

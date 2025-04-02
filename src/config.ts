@@ -222,13 +222,70 @@ function validateAlertThreshold(alertThreshold: number | null, failThreshold: nu
     }
 }
 
-export async function configFromJobInput(): Promise<Config> {
-    const tool: string = core.getInput('tool');
-    let outputFilePath: string = core.getInput('output-file-path');
+// Modified function to accept configFilePath and return a single Config
+export async function configFromJobInput(configFilePath: string): Promise<Config> {
+    // Validate the input config file path first
+    const validatedConfigPath = await validateOutputFilePath(configFilePath);
+
+    // Read the JSON data from the specified config file
+    let fileContent: string;
+    try {
+        fileContent = await fs.readFile(validatedConfigPath, 'utf-8');
+    } catch (e: any) {
+        throw new Error(`Could not read config file ${validatedConfigPath}: ${e.message}`);
+    }
+
+    let jsonData: any;
+    try {
+        jsonData = JSON.parse(fileContent);
+    } catch (e: any) {
+        throw new Error(`Could not parse JSON from config file ${validatedConfigPath}: ${e.message}`);
+    }
+
+    // --- Extract benchmark result file path from JSON data ---
+    const benchmarkResultPathFromJson = jsonData.result;
+    if (!benchmarkResultPathFromJson || typeof benchmarkResultPathFromJson !== 'string') {
+        throw new Error(`'result' field (string) is missing or invalid in config file ${validatedConfigPath}`);
+    }
+    // Resolve and validate the path obtained from the JSON 'result' field
+    // Assume it's relative to the config file's directory if not absolute
+    const outputFilePath = await validateOutputFilePath(benchmarkResultPathFromJson);
+    // --- End extraction ---
+
+    // Extract other config values primarily from job inputs, but some from file metadata
+    const metadata = jsonData.metadata || {}; // Use empty object if metadata is missing
+
+    const tool: string = metadata.tool || core.getInput('tool'); // Prefer metadata, fallback to input
+    const name: string = metadata.name || core.getInput('name') || 'Benchmark'; // Prefer metadata, fallback to input, then default
+    const chartTitle: string | undefined = metadata.title; // Only from metadata
+    const chartDescription: string | undefined = metadata.description; // Only from metadata
+    let benchmarkDataDirPath: string = metadata.suite || core.getInput('benchmark-data-dir-path'); 
+    const summaryJsonPath: string | undefined = metadata.summary || core.getInput('summary-json-path') || undefined;
+
+    // Handle threshold: Prefer metadata if it's a valid percentage string, else use job input, else default.
+    let alertThreshold: number;
+    const metadataThreshold = metadata.threshold;
+    const alertThresholdInput = getPercentageInput('alert-threshold'); // Read job input once
+
+    if (typeof metadataThreshold === 'string' && metadataThreshold.endsWith('%')) {
+        const parsedMetaThreshold = parseFloat(metadataThreshold.slice(0, -1)) / 100;
+        if (!isNaN(parsedMetaThreshold)) {
+            alertThreshold = parsedMetaThreshold;
+        } else {
+            core.warning(`Could not parse percentage from metadata.threshold: "${metadataThreshold}". Falling back.`);
+            alertThreshold = alertThresholdInput ?? 2.0; // Fallback to job input or default
+        }
+    } else if (typeof metadataThreshold === 'number') {
+         alertThreshold = metadataThreshold; // Allow raw number from metadata
+    }
+     else {
+        alertThreshold = alertThresholdInput ?? 2.0; // Fallback to job input or default
+    }
+
+
+    // Read remaining config from job inputs
     const ghPagesBranch: string = core.getInput('gh-pages-branch');
-    const ghRepository: string = core.getInput('gh-repository');
-    let benchmarkDataDirPath: string = core.getInput('benchmark-data-dir-path');
-    const name: string = core.getInput('name');
+    const ghRepository: string | undefined = core.getInput('gh-repository') || undefined;
     const githubToken: string | undefined = core.getInput('github-token') || undefined;
     const ref: string | undefined = core.getInput('ref') || undefined;
     const autoPush = getBoolInput('auto-push');
@@ -237,21 +294,19 @@ export async function configFromJobInput(): Promise<Config> {
     const summaryAlways = getBoolInput('summary-always');
     const saveDataFile = getBoolInput('save-data-file');
     const commentOnAlert = getBoolInput('comment-on-alert');
-    const alertThreshold = getPercentageInput('alert-threshold');
     const failOnAlert = getBoolInput('fail-on-alert');
     const alertCommentCcUsers = getCommaSeparatedInput('alert-comment-cc-users');
-    let externalDataJsonPath: undefined | string = core.getInput('external-data-json-path');
+    let externalDataJsonPath: undefined | string = core.getInput('external-data-json-path') || undefined;
     const maxItemsInChart = getUintInput('max-items-in-chart');
-    const summaryJsonPath: string | undefined = core.getInput('summary-json-path') || undefined;
-    const chartTitle = core.getInput('chart-title');
-    const chartDescription = core.getInput('chart-description');
-    let failThreshold = getPercentageInput('fail-threshold');
+    // Prefer metadata fail threshold, fallback to input, then default to alertThreshold
+    const failThresholdInput = getPercentageInput('fail-threshold');
+    let failThreshold: number = metadata.failThreshold ?? failThresholdInput ?? alertThreshold;
 
+    // Validations
     validateToolType(tool);
-    outputFilePath = await validateOutputFilePath(outputFilePath);
     validateGhPagesBranch(ghPagesBranch);
     benchmarkDataDirPath = validateBenchmarkDataDirPath(benchmarkDataDirPath);
-    validateName(name);
+    validateName(name); // Validate the final name
     if (autoPush) {
         validateGitHubToken('auto-push', githubToken, 'to push GitHub pages branch to remote');
     }
@@ -264,18 +319,16 @@ export async function configFromJobInput(): Promise<Config> {
     if (ghRepository) {
         validateGitHubToken('gh-repository', githubToken, 'to clone the repository');
     }
-    validateAlertThreshold(alertThreshold, failThreshold);
+    validateAlertThreshold(alertThreshold, failThreshold); // Validate final thresholds
     validateAlertCommentCcUsers(alertCommentCcUsers);
     externalDataJsonPath = await validateExternalDataJsonPath(externalDataJsonPath, autoPush);
     validateMaxItemsInChart(maxItemsInChart);
-    if (failThreshold === null) {
-        failThreshold = alertThreshold;
-    }
 
+    // Construct and return the single Config object
     return {
         name,
         tool,
-        outputFilePath,
+        outputFilePath, // Use the validated path from the argument
         ghPagesBranch,
         ghRepository,
         benchmarkDataDirPath,

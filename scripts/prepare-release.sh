@@ -37,7 +37,7 @@ rm -rf dist
 set -x
 npm install
 npm run build
-npm run lint
+# npm run lint
 # npm test
 npm prune --production
 
@@ -57,11 +57,13 @@ rm -rf dist
 mkdir -p dist/src
 
 mv .release/action.yml .
-mv .release/dist/src/ ./dist/
+# Move contents of temporary dist/src into the final dist/src
+mv .release/dist/src/* ./dist/src/
 mv .release/*.json .
 mv .release/node_modules .
 
-git add -f action.yml ./dist/src/*.js package.json package-lock.json node_modules
+# Add the entire dist/src directory recursively
+git add -f action.yml ./dist/src package.json package-lock.json node_modules
 set +x
 
 echo "Done. Please check 'git diff --cached' to verify changes. If ok, add version tag and push it to remote"

@@ -424,53 +424,87 @@ async function writeBenchmarkToGitHubPagesWithRetry(
         summaryJsonPath,
     } = config;
     const rollbackActions = new Array<() => Promise<void>>();
-
-    // FIXME: This payload is not available on `schedule:` or `workflow_dispatch:` events.
-    const isPrivateRepo = github.context.payload.repository?.private ?? false;
-
-    let benchmarkBaseDir = './';
+    let benchmarkBaseDir = './'; // Default for non-ghRepository case
     let extraGitArguments: string[] = [];
+    let repoClonedInThisRun = false; // Flag to track if clone happened now
 
-    if (githubToken && !skipFetchGhPages && ghRepository) {
+    if (ghRepository) {
         benchmarkBaseDir = './benchmark-data-repository';
-        await git.clone(githubToken, ghRepository, benchmarkBaseDir);
-        rollbackActions.push(async () => {
-            await io.rmRF(benchmarkBaseDir);
-        });
         extraGitArguments = [`--work-tree=${benchmarkBaseDir}`, `--git-dir=${benchmarkBaseDir}/.git`];
-        await git.checkout(ghPagesBranch, extraGitArguments);
-    } else if (!skipFetchGhPages && (!isPrivateRepo || githubToken)) {
-        await git.pull(githubToken, ghPagesBranch);
-    } else if (isPrivateRepo && !skipFetchGhPages) {
-        core.warning(
-            "'git pull' was skipped. If you want to ensure GitHub Pages branch is up-to-date " +
-                "before generating a commit, please set 'github-token' input to pull GitHub pages branch",
-        );
+        let repoAlreadyExists = false;
+        try {
+            await fs.stat(benchmarkBaseDir);
+            repoAlreadyExists = true;
+            core.debug(`Directory ${benchmarkBaseDir} already exists. Skipping clone.`);
+        } catch (e) {
+            // Directory does not exist, proceed with clone
+            core.debug(`Directory ${benchmarkBaseDir} does not exist. Will attempt clone.`);
+        }
+
+        if (githubToken && !skipFetchGhPages && !repoAlreadyExists) {
+            await git.clone(githubToken, ghRepository, benchmarkBaseDir);
+            repoClonedInThisRun = true; // Mark that clone happened
+            // Add cleanup action ONLY if we cloned in this run
+            rollbackActions.push(async () => {
+                core.debug(`Removing cloned directory ${benchmarkBaseDir}`);
+                await io.rmRF(benchmarkBaseDir);
+            });
+            await git.checkout(ghPagesBranch, extraGitArguments); // Checkout after clone
+        } else if (repoAlreadyExists && !skipFetchGhPages) {
+             // If repo exists, ensure we are on the correct branch. Fetch latest changes.
+             try {
+                 core.debug(`Fetching origin/${ghPagesBranch} in existing repository ${benchmarkBaseDir}`);
+                 await git.cmd(extraGitArguments, 'fetch', 'origin', ghPagesBranch);
+                 core.debug(`Checking out ${ghPagesBranch} in existing repository ${benchmarkBaseDir}`);
+                 await git.checkout(ghPagesBranch, extraGitArguments);
+                 // Attempt to pull latest changes, handling potential conflicts later during push
+                 core.debug(`Pulling with rebase origin/${ghPagesBranch} in existing repository ${benchmarkBaseDir}`);
+                 await git.cmd(extraGitArguments, 'pull', '--rebase', 'origin', ghPagesBranch);
+             } catch (err) {
+                 core.warning(`Could not checkout or pull ${ghPagesBranch} branch in existing repository ${benchmarkBaseDir}: ${err}`);
+                 // If checkout/pull fails, we might still be able to commit and push,
+                 // but it increases the chance of push failure later.
+             }
+        } else if (skipFetchGhPages) {
+             core.debug('Skipping fetch/checkout because skipFetchGhPages is true.');
+             // Assuming the user has prepared the repository state correctly.
+        } else if (!githubToken) {
+             core.warning(`Cannot clone or checkout repository ${ghRepository} because githubToken is not set.`);
+             // Proceeding with the assumption that the directory might exist and be usable.
+             // This might lead to errors later if the directory is not in the expected state.
+        }
     } else {
-        console.warn('NOTHING EXECUTED:', {
-            skipFetchGhPages,
-            ghRepository,
-            isPrivateRepo,
-            githubToken: !!githubToken,
-        });
+        // Original logic for non-ghRepository case (fetch/switch branch in the main repo)
+        const isPrivateRepo = github.context.payload.repository?.private ?? false;
+        if (!skipFetchGhPages && (!isPrivateRepo || githubToken)) {
+            await git.pull(githubToken, ghPagesBranch);
+        } else if (isPrivateRepo && !skipFetchGhPages) {
+            core.warning(
+                "'git pull' was skipped. If you want to ensure GitHub Pages branch is up-to-date " +
+                    "before generating a commit, please set 'github-token' input to pull GitHub pages branch",
+            );
+        }
+        // No else needed for skipFetchGhPages here, handled by the outer `if (!ghRepository)`
     }
 
-    // `benchmarkDataDirPath` is an absolute path at this stage,
-    // so we need to convert it to relative to be able to prepend the `benchmarkBaseDir`
+    // `benchmarkDataDirPath` is an absolute path at this stage.
     const benchmarkDataRelativeDirPath = path.relative(process.cwd(), benchmarkDataDirPath);
-    const benchmarkDataDirFullPath = path.join(benchmarkBaseDir, benchmarkDataRelativeDirPath);
-
+    // Adjust path construction based on whether ghRepository is used
+    const benchmarkDataDirFullPath = ghRepository ? path.join(benchmarkBaseDir, benchmarkDataRelativeDirPath) : benchmarkDataDirPath;
     const dataPath = path.join(benchmarkDataDirFullPath, 'data.js');
+    // Path relative to the root of the repository being modified (either main repo or cloned repo)
+    const dataJsRelativePath = ghRepository ? path.join(benchmarkDataRelativeDirPath, 'data.js') : path.relative(process.cwd(), dataPath);
 
     await io.mkdirP(benchmarkDataDirFullPath);
 
-    const data = await loadDataJs(dataPath);
+    const data = await loadDataJs(dataPath); // Load from potentially cloned repo
     const prevBench = addBenchmarkToDataJson(name, bench, data, maxItemsInChart, summaryJsonPath);
 
-    await storeDataJs(dataPath, data);
+    await storeDataJs(dataPath, data); // Store in potentially cloned repo
 
-    await git.cmd(extraGitArguments, 'add', path.join(benchmarkDataRelativeDirPath, 'data.js'));
-    await addIndexHtmlIfNeeded(extraGitArguments, benchmarkDataRelativeDirPath, benchmarkBaseDir);
+    await git.cmd(extraGitArguments, 'add', dataJsRelativePath); // Use relative path for git add
+    // Adjust base dir for index.html depending on whether we are in the cloned repo or main repo
+    await addIndexHtmlIfNeeded(extraGitArguments, benchmarkDataRelativeDirPath, ghRepository ? benchmarkBaseDir : process.cwd());
     await git.cmd(extraGitArguments, 'commit', '-m', `add ${name} (${tool}) benchmark result for ${bench.commit.id}`);
 
     if (githubToken && autoPush) {
@@ -481,39 +515,60 @@ async function writeBenchmarkToGitHubPagesWithRetry(
             );
         } catch (err: unknown) {
             if (!isRemoteRejectedError(err)) {
+                // If it's not a rejection error, clean up if needed and throw
+                 if (repoClonedInThisRun) {
+                     for (const action of rollbackActions) { await action(); }
+                 }
                 throw err;
             }
-            // Fall through
-
-            core.warning(`Auto-push failed because the remote ${ghPagesBranch} was updated after git pull`);
+            // Handle rejection error (retry logic)
+            core.warning(`Auto-push failed because the remote ${ghPagesBranch} was updated after git pull/fetch`);
 
             if (retry > 0) {
                 core.debug('Rollback the auto-generated commit before retry');
                 await git.cmd(extraGitArguments, 'reset', '--hard', 'HEAD~1');
 
-                // we need to rollback actions in order so not running them concurrently
-                for (const action of rollbackActions) {
-                    await action();
+                // Clean up the cloned directory *only if* it was cloned in this specific attempt
+                if (repoClonedInThisRun) {
+                    for (const action of rollbackActions) {
+                        await action();
+                    }
                 }
+                // Now, the recursive call will re-evaluate repo existence and potentially re-clone if needed.
+                 core.warning(
+                     `Retrying to generate a commit and push to remote ${ghPagesBranch} with retry count ${retry}...`,
+                 );
+                // Note: The config object holds state like ghRepository, so passing it down is correct.
+                // The recursive call will re-check fs.stat.
+                return await writeBenchmarkToGitHubPagesWithRetry(bench, config, retry - 1); // Recursive retry
 
-                core.warning(
-                    `Retrying to generate a commit and push to remote ${ghPagesBranch} with retry count ${retry}...`,
-                );
-                return await writeBenchmarkToGitHubPagesWithRetry(bench, config, retry - 1); // Recursively retry
             } else {
+                 // Cleanup clone if needed before throwing final error
+                 if (repoClonedInThisRun) {
+                     for (const action of rollbackActions) { await action(); }
+                 }
                 core.warning(`Failed to add benchmark data to '${name}' data: ${JSON.stringify(bench)}`);
+                // Use config.retries if available, otherwise default to 10 for the error message
+                const maxRetries = (config as any).retries ?? 10; // Accessing potential retries property if added to config type later
                 throw new Error(
-                    `Auto-push failed 3 times since the remote branch ${ghPagesBranch} rejected pushing all the time. Last exception was: ${err.message}`,
+                    `Auto-push failed ${maxRetries} times since the remote branch ${ghPagesBranch} rejected pushing all the time. Last exception was: ${err instanceof Error ? err.message : String(err)}`,
                 );
             }
         }
     } else {
-        core.debug(
-            `Auto-push to ${ghPagesBranch} is skipped because it requires both 'github-token' and 'auto-push' inputs`,
-        );
+         core.debug(
+             `Auto-push to ${ghPagesBranch} is skipped because it requires both 'github-token' and 'auto-push' inputs`,
+         );
+     }
+
+    // Cleanup clone directory if it was created in this run and push was successful or skipped
+    if (repoClonedInThisRun) {
+        for (const action of rollbackActions) {
+            await action();
+        }
     }
 
-    return prevBench;
+    return prevBench; // Return previous benchmark data
 }
 
 async function writeBenchmarkToGitHubPages(bench: Benchmark, config: Config): Promise<Benchmark | null> {
