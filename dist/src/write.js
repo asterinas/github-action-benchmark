@@ -49,7 +49,11 @@ async function loadDataJs(dataPath) {
     }
     catch (err) {
         console.log(`Could not find data.js at ${dataPath}. Using empty default: ${err}`);
-        return { ...DEFAULT_DATA_JSON };
+        return {
+            lastUpdate: 0,
+            repoUrl: '',
+            entries: {},
+        };
     }
 }
 async function loadSummaryJson(jsonPath) {
@@ -415,17 +419,15 @@ async function writeBenchmarkToGitHubPagesWithRetry(bench, config, retry) {
     // `benchmarkDataDirPath` is an absolute path at this stage.
     const benchmarkDataRelativeDirPath = path.relative(process.cwd(), benchmarkDataDirPath);
     // Adjust path construction based on whether ghRepository is used
-    const benchmarkDataDirFullPath = ghRepository ? path.join(benchmarkBaseDir, benchmarkDataRelativeDirPath) : benchmarkDataDirPath;
+    const benchmarkDataDirFullPath = path.join(benchmarkBaseDir, benchmarkDataRelativeDirPath);
     const dataPath = path.join(benchmarkDataDirFullPath, 'data.js');
-    // Path relative to the root of the repository being modified (either main repo or cloned repo)
-    const dataJsRelativePath = ghRepository ? path.join(benchmarkDataRelativeDirPath, 'data.js') : path.relative(process.cwd(), dataPath);
     await io.mkdirP(benchmarkDataDirFullPath);
     const data = await loadDataJs(dataPath); // Load from potentially cloned repo
-    const prevBench = addBenchmarkToDataJson(name, bench, data, maxItemsInChart, summaryJsonPath);
+    const prevBench = await addBenchmarkToDataJson(name, bench, data, maxItemsInChart, summaryJsonPath);
+    // Stringify data *after* addBenchmarkToDataJson potentially modified it, before logging
     await storeDataJs(dataPath, data); // Store in potentially cloned repo
-    await git.cmd(extraGitArguments, 'add', dataJsRelativePath); // Use relative path for git add
-    // Adjust base dir for index.html depending on whether we are in the cloned repo or main repo
-    await addIndexHtmlIfNeeded(extraGitArguments, benchmarkDataRelativeDirPath, ghRepository ? benchmarkBaseDir : process.cwd());
+    await git.cmd(extraGitArguments, 'add', path.join(benchmarkDataRelativeDirPath, 'data.js'));
+    await addIndexHtmlIfNeeded(extraGitArguments, benchmarkDataRelativeDirPath, benchmarkBaseDir);
     await git.cmd(extraGitArguments, 'commit', '-m', `add ${name} (${tool}) benchmark result for ${bench.commit.id}`);
     if (githubToken && autoPush) {
         try {
